@@ -16,7 +16,7 @@ export function Footer() {
         <div className="grid gap-10 md:grid-cols-[1.5fr_1fr_1fr]">
           <div>
             <div className="flex items-center gap-3">
-              <Logo className="h-11 w-11" />
+              <Logo variant="badge" onDark className="h-11 w-11" />
               <span className="font-display text-xl font-semibold text-cream">
                 Mobile Mulligans
               </span>

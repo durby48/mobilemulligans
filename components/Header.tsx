@@ -33,7 +33,7 @@ export function Header() {
     >
       <div className="container-px flex h-16 items-center justify-between sm:h-20">
         <a href="#top" className="flex items-center gap-3" aria-label={`${siteConfig.name} home`}>
-          <Logo className="h-10 w-10 sm:h-12 sm:w-12" />
+          <Logo variant="badge" onDark className="h-10 w-10 sm:h-12 sm:w-12" />
           <span className="flex flex-col leading-none">
             <span className="font-display text-lg font-semibold text-cream sm:text-xl">
               Mobile Mulligans

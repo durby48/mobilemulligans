@@ -54,7 +54,7 @@ export function Hero() {
           <div className="relative mx-auto aspect-square w-full max-w-md">
             <div className="absolute inset-0 rounded-full bg-gradient-to-br from-sage/40 to-gold/20 blur-2xl" />
             <div className="relative flex h-full w-full items-center justify-center rounded-[2rem] border border-cream/15 bg-gradient-to-br from-[#274a4b] to-[#16292a] p-10 shadow-2xl">
-              <Logo className="h-full w-full drop-shadow-2xl" />
+              <Logo variant="full" onDark showUrl className="h-full w-full drop-shadow-2xl" />
             </div>
             <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 rounded-full border border-cream/15 bg-dark-teal/90 px-6 py-2.5 text-center shadow-lg backdrop-blur">
               <p className="text-xs uppercase tracking-[0.2em] text-gold">Tee off anywhere</p>
