@@ -48,16 +48,21 @@ export function Events() {
 
         <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {eventTypes.map((event) => (
-            <div
+            <a
               key={event.title}
-              className="group rounded-2xl border border-dark-teal/10 bg-white/60 p-6 transition-all duration-300 hover:-translate-y-1 hover:border-gold/50 hover:bg-white hover:shadow-card-hover"
+              href="#contact"
+              className="group flex flex-col rounded-2xl border border-dark-teal/10 bg-white/60 p-6 transition-all duration-300 hover:-translate-y-1 hover:border-gold/50 hover:bg-white hover:shadow-card-hover"
             >
               <span className="block h-1 w-10 rounded-full bg-gold transition-all duration-300 group-hover:w-16" />
               <h3 className="mt-4 font-display text-lg font-semibold text-dark-teal">
                 {event.title}
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-dark-teal/70">{event.body}</p>
-            </div>
+              <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-gold opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                Book this event
+                <span aria-hidden="true" className="transition-transform duration-300 group-hover:translate-x-0.5">→</span>
+              </span>
+            </a>
           ))}
         </div>
       </div>
