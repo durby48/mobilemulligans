@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-cream: #f4e8d5;
+  --color-tan: #d8c1a0;
+  --color-gold: #a78b63;
+  --color-sage: #4c7b72;
+  --color-dark-teal: #1f3a3b;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+}
+
+body {
+  background-color: var(--color-cream);
+  color: var(--color-dark-teal);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+@layer components {
+  .container-px {
+    @apply mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-12;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold tracking-wide transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-cream focus-visible:ring-gold;
+  }
+
+  .btn-primary {
+    @apply btn bg-gold text-dark-teal shadow-card hover:bg-[#b89a72] hover:shadow-card-hover hover:-translate-y-0.5;
+  }
+
+  .btn-secondary {
+    @apply btn border border-dark-teal/20 bg-transparent text-dark-teal hover:border-dark-teal hover:bg-dark-teal hover:text-cream;
+  }
+
+  .btn-on-dark {
+    @apply btn border border-cream/30 bg-transparent text-cream hover:bg-cream hover:text-dark-teal;
+  }
+
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-[0.2em] text-sage;
+  }
+
+  .section-heading {
+    @apply font-display text-3xl font-semibold leading-tight text-dark-teal sm:text-4xl lg:text-[2.75rem];
+  }
+
+  .card {
+    @apply rounded-2xl border border-dark-teal/10 bg-white/70 p-7 shadow-card backdrop-blur-sm transition-all duration-300;
+  }
+}
+
+/* Custom golf-dimple texture used as a subtle accent */
+.dimple-bg {
+  background-image: radial-gradient(rgba(31, 58, 59, 0.06) 1.2px, transparent 1.3px);
+  background-size: 18px 18px;
+}

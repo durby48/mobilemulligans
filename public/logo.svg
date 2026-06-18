@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Mobile Mulligans monogram">
+  <defs>
+    <linearGradient id="mmGold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#C2A576"/>
+      <stop offset="1" stop-color="#A78B63"/>
+    </linearGradient>
+  </defs>
+  <circle cx="60" cy="60" r="58" fill="#1F3A3B"/>
+  <circle cx="60" cy="60" r="52" fill="none" stroke="url(#mmGold)" stroke-width="2.5"/>
+  <circle cx="60" cy="60" r="46" fill="none" stroke="#4C7B72" stroke-width="1" opacity="0.5"/>
+  <!-- golf ball -->
+  <circle cx="84" cy="38" r="9" fill="#F4E8D5"/>
+  <g fill="#1F3A3B" opacity="0.35">
+    <circle cx="81" cy="35" r="1"/>
+    <circle cx="85" cy="35" r="1"/>
+    <circle cx="83" cy="39" r="1"/>
+    <circle cx="87" cy="39" r="1"/>
+    <circle cx="84" cy="42.5" r="1"/>
+  </g>
+  <!-- club shaft -->
+  <line x1="84" y1="47" x2="60" y2="86" stroke="url(#mmGold)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M54 84 q-6 4 -2 9 q5 3 10 -1 z" fill="url(#mmGold)"/>
+  <!-- monogram MM -->
+  <text x="60" y="68" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="34" font-weight="700" fill="url(#mmGold)" letter-spacing="-2">MM</text>
+</svg>

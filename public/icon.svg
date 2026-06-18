@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Mobile Mulligans icon">
+  <defs>
+    <linearGradient id="iGold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#C2A576"/>
+      <stop offset="1" stop-color="#A78B63"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="26" fill="#1F3A3B"/>
+  <circle cx="60" cy="60" r="44" fill="none" stroke="url(#iGold)" stroke-width="3"/>
+  <text x="60" y="74" text-anchor="middle" font-family="Georgia, serif" font-size="44" font-weight="700" fill="url(#iGold)" letter-spacing="-3">MM</text>
+</svg>
