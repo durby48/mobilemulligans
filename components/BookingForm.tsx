@@ -123,7 +123,7 @@ export function BookingForm() {
 
         <div>
           <label htmlFor="event_date" className={labelClasses}>Event Date</label>
-          <input id="event_date" name="event_date" type="date" className={inputClasses} />
+          <input id="event_date" name="event_date" type="date" className={`${inputClasses} min-w-0 appearance-none`} />
           {fieldErrors.event_date && <p className="mt-1 text-sm text-red-600">{fieldErrors.event_date}</p>}
         </div>
 
