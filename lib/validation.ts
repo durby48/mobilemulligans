@@ -1,9 +1,15 @@
-import type { BookingRequestInput } from "@/types/database";
+import type { BookingRequestInput, WaitlistSignupInput } from "@/types/database";
 
 export interface ValidationResult {
   valid: boolean;
   errors: Record<string, string>;
   data?: BookingRequestInput;
+}
+
+export interface WaitlistValidationResult {
+  valid: boolean;
+  errors: Record<string, string>;
+  data?: WaitlistSignupInput;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -67,6 +73,38 @@ export function validateBookingInput(raw: unknown): ValidationResult {
       event_type: event_type || null,
       guest_count,
       message: message || null,
+    },
+  };
+}
+
+/**
+ * Validates and normalizes a raw waitlist payload. Email is lowercased so the
+ * unique constraint dedupes case-insensitively.
+ */
+export function validateWaitlistInput(raw: unknown): WaitlistValidationResult {
+  const errors: Record<string, string> = {};
+  const body = (raw ?? {}) as Record<string, unknown>;
+
+  const email = asTrimmedString(body.email).toLowerCase();
+  const name = asTrimmedString(body.name);
+
+  if (!email) {
+    errors.email = "Please enter your email address.";
+  } else if (!EMAIL_RE.test(email)) {
+    errors.email = "Please provide a valid email address.";
+  }
+
+  if (Object.keys(errors).length > 0) {
+    return { valid: false, errors };
+  }
+
+  return {
+    valid: true,
+    errors: {},
+    data: {
+      email,
+      name: name || null,
+      source: "website",
     },
   };
 }

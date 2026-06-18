@@ -12,20 +12,20 @@ type Plan = {
 
 const plans: Plan[] = [
   {
-    name: "Private Party",
+    name: "Backyard Birdie",
     price: "$499",
     cadence: "starting / 3 hours",
-    description: "Perfect for backyard gatherings, birthdays, and casual get-togethers.",
+    description: "Birthdays, grad parties, and backyard get-togethers.",
     features: [
       "Up to 3 hours of play",
       "Full simulator setup & teardown",
       "On-site host & support",
       "Closest-to-the-pin contest",
     ],
-    cta: "Book a Party",
+    cta: "Tee Up a Party",
   },
   {
-    name: "Corporate Event",
+    name: "Corporate Classic",
     price: "$899",
     cadence: "starting / 4 hours",
     description: "Impress clients and reward teams with a polished, branded experience.",
@@ -37,13 +37,13 @@ const plans: Plan[] = [
       "Premium course package",
     ],
     featured: true,
-    cta: "Plan Your Event",
+    cta: "Plan Your Outing",
   },
   {
-    name: "Wedding / Fundraiser",
+    name: "The Charity Open",
     price: "$799",
     cadence: "starting / 4 hours",
-    description: "A memorable activity for receptions, charity events, and large groups.",
+    description: "Weddings, receptions, fundraisers, and charity events for large groups.",
     features: [
       "Up to 4 hours of play",
       "Contest & prize setup",
@@ -143,7 +143,7 @@ export function Pricing() {
           <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
             <div>
               <h3 className="font-display text-2xl font-semibold text-cream sm:text-3xl">
-                Need something custom?
+                The 19th Hole — need something custom?
               </h3>
               <p className="mt-2 max-w-xl text-cream/80">
                 Multi-day events, leagues, large guest counts, or a unique venue? Tell us

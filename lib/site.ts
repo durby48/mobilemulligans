@@ -7,7 +7,7 @@ export const siteConfig = {
     "Premium mobile golf simulator rentals for parties, corporate events, weddings, fundraisers, and private gatherings. We bring the course to you.",
   email: "hello@mobilemulligans.net",
   phone: "(555) 123-4567",
-  serviceArea: "Serving the greater metro area & surrounding communities",
+  serviceArea: "Serving the greater Kansas City metro area & surrounding communities",
   social: {
     instagram: "https://instagram.com/",
     facebook: "https://facebook.com/",

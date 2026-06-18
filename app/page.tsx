@@ -1,5 +1,6 @@
 import { Header } from "@/components/Header";
 import { Hero } from "@/components/Hero";
+import { Waitlist } from "@/components/Waitlist";
 import { About } from "@/components/About";
 import { HowItWorks } from "@/components/HowItWorks";
 import { Pricing } from "@/components/Pricing";
@@ -32,6 +33,7 @@ export default function HomePage() {
       <Header />
       <main>
         <Hero />
+        <Waitlist />
         <About />
         <HowItWorks />
         <Pricing />

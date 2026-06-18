@@ -41,6 +41,21 @@ export type BookingRequestInput = {
   message?: string | null;
 };
 
+export type WaitlistSignup = {
+  id: string;
+  created_at: string;
+  email: string;
+  name: string | null;
+  source: string | null;
+};
+
+/** Shape submitted by the public waitlist form. */
+export type WaitlistSignupInput = {
+  email: string;
+  name?: string | null;
+  source?: string | null;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -52,6 +67,15 @@ export type Database = {
           status?: BookingStatus;
         };
         Update: Partial<BookingRequest>;
+        Relationships: [];
+      };
+      waitlist_signups: {
+        Row: WaitlistSignup;
+        Insert: WaitlistSignupInput & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<WaitlistSignup>;
         Relationships: [];
       };
     };

@@ -103,10 +103,37 @@ create policy "Allow public inserts"
 -- (No SELECT policy is created, so anon/auth cannot read rows.)
 ```
 
+### Waitlist signups table
+
+The homepage "Join the Wishlist" section (Kansas City launch, summer 2026) saves
+emails to a separate `waitlist_signups` table:
+
+```sql
+-- Table
+create table if not exists public.waitlist_signups (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  email text not null unique,
+  name text,
+  source text default 'website'
+);
+
+-- Enable Row Level Security
+alter table public.waitlist_signups enable row level security;
+
+-- Allow anonymous + authenticated visitors to join the waitlist.
+create policy "Allow public waitlist inserts"
+  on public.waitlist_signups
+  for insert
+  to anon, authenticated
+  with check (true);
+```
+
 ### Reviewing submissions
 
 View incoming leads in the Supabase dashboard under **Table Editor →
-`booking_requests`**, or build an admin view using the service role key.
+`booking_requests`**, and waitlist emails under **Table Editor →
+`waitlist_signups`**, or build an admin view using the service role key.
 
 ## Available Scripts
 
