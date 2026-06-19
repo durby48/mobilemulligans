@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { validateBookingInput } from "@/lib/validation";
+import { sendNotificationEmail, escapeHtml } from "@/lib/email";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,6 +38,25 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
+
+    const b = result.data;
+    await sendNotificationEmail({
+      subject: `New booking request — ${b.name}`,
+      replyTo: b.email,
+      html: `
+        <h2>New booking request</h2>
+        <table cellpadding="6" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px">
+          <tr><td><strong>Name</strong></td><td>${escapeHtml(b.name)}</td></tr>
+          <tr><td><strong>Email</strong></td><td>${escapeHtml(b.email)}</td></tr>
+          <tr><td><strong>Phone</strong></td><td>${escapeHtml(b.phone)}</td></tr>
+          <tr><td><strong>Event date</strong></td><td>${escapeHtml(b.event_date)}</td></tr>
+          <tr><td><strong>Event type</strong></td><td>${escapeHtml(b.event_type)}</td></tr>
+          <tr><td><strong>Guest count</strong></td><td>${escapeHtml(b.guest_count)}</td></tr>
+          <tr><td><strong>Location</strong></td><td>${escapeHtml(b.event_location)}</td></tr>
+          <tr><td valign="top"><strong>Message</strong></td><td>${escapeHtml(b.message)}</td></tr>
+        </table>
+      `,
+    });
   } catch (err) {
     console.error("Booking submission failed:", err);
     return NextResponse.json(

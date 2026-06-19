@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { validateWaitlistInput } from "@/lib/validation";
+import { sendNotificationEmail, escapeHtml } from "@/lib/email";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,6 +38,20 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
+
+    const w = result.data;
+    await sendNotificationEmail({
+      subject: `New wishlist signup — ${w.email}`,
+      replyTo: w.email,
+      html: `
+        <h2>New wishlist signup</h2>
+        <table cellpadding="6" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px">
+          <tr><td><strong>Email</strong></td><td>${escapeHtml(w.email)}</td></tr>
+          <tr><td><strong>Name</strong></td><td>${escapeHtml(w.name)}</td></tr>
+          <tr><td><strong>Source</strong></td><td>${escapeHtml(w.source)}</td></tr>
+        </table>
+      `,
+    });
   } catch (err) {
     console.error("Waitlist signup failed:", err);
     return NextResponse.json(
