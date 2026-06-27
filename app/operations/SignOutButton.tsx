@@ -20,7 +20,7 @@ export function SignOutButton() {
       onClick={signOut}
       style={{
         position: "fixed",
-        top: 12,
+        bottom: 12,
         left: 12,
         zIndex: 2147483647,
         padding: "6px 12px",
