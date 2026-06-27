@@ -56,6 +56,22 @@ export type WaitlistSignupInput = {
   source?: string | null;
 };
 
+/** What an authenticated employee may do once their scope is honored (mirrors
+ *  @durbin/contracts OperatorRole). Owner → token scope "all"; others → company. */
+export type OperatorRole = "owner" | "operator" | "viewer";
+
+/** A person allowed into the remote-operations console. Keyed by login email;
+ *  `company` is the home tenant ("mobile-mulligans" | "dc-solar"). RLS: a user
+ *  may read only their own row; the /api/ops-token route reads it via service role. */
+export type Employee = {
+  id: string;
+  created_at: string;
+  email: string;
+  company: string;
+  role: OperatorRole;
+  display_name: string | null;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -67,6 +83,15 @@ export type Database = {
           status?: BookingStatus;
         };
         Update: Partial<BookingRequest>;
+        Relationships: [];
+      };
+      employees: {
+        Row: Employee;
+        Insert: Omit<Employee, "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<Employee>;
         Relationships: [];
       };
       waitlist_signups: {

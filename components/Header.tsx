@@ -54,6 +54,12 @@ export function Header() {
               {link.label}
             </a>
           ))}
+          <a
+            href="/login"
+            className="inline-flex items-center rounded-full border border-gold/50 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.15em] text-gold transition-colors hover:bg-gold hover:text-dark-teal"
+          >
+            Employee Login
+          </a>
           <a href="#contact" className="btn-primary">
             Book an Event
           </a>
@@ -85,6 +91,13 @@ export function Header() {
               {link.label}
             </a>
           ))}
+          <a
+            href="/login"
+            onClick={() => setOpen(false)}
+            className="mt-2 rounded-lg border border-gold/40 px-3 py-3 text-base font-semibold text-gold transition-colors hover:bg-gold/10"
+          >
+            Employee Login
+          </a>
           <a
             href="#contact"
             onClick={() => setOpen(false)}
