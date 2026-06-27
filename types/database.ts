@@ -72,6 +72,40 @@ export type Employee = {
   display_name: string | null;
 };
 
+/** A money event in the finance durable plane. `company` is the home tenant
+ *  ("mobile-mulligans" | "dc-solar"). RLS: a logged-in employee may read only
+ *  their own company's rows; the /api/finance/* routes write via service role. */
+export type FinanceType = "invoice" | "estimate" | "expense" | "payment";
+export type FinanceDirection = "in" | "out";
+
+export type FinanceEntry = {
+  id: string;
+  created_at: string;
+  company: string;
+  type: FinanceType;
+  direction: FinanceDirection;
+  amount: number;
+  currency: string;
+  counterparty: string | null;
+  description: string | null;
+  occurred_on: string | null;
+  status: string;
+  source_file: string | null;
+  extracted: Record<string, unknown> | null;
+};
+
+/** Shape accepted by POST /api/finance/entry (company is server-derived). */
+export type FinanceEntryInput = {
+  type: FinanceType;
+  direction: FinanceDirection;
+  amount: number;
+  currency?: string;
+  counterparty?: string | null;
+  description?: string | null;
+  occurred_on?: string | null;
+  status?: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -92,6 +126,20 @@ export type Database = {
           created_at?: string;
         };
         Update: Partial<Employee>;
+        Relationships: [];
+      };
+      finance_entries: {
+        Row: FinanceEntry;
+        Insert: FinanceEntryInput & {
+          id?: string;
+          created_at?: string;
+          company: string;
+          currency?: string;
+          status?: string;
+          source_file?: string | null;
+          extracted?: Record<string, unknown> | null;
+        };
+        Update: Partial<FinanceEntry>;
         Relationships: [];
       };
       waitlist_signups: {

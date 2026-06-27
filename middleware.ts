@@ -55,5 +55,5 @@ function denied(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/operations/:path*", "/api/ops-token/:path*"],
+  matcher: ["/operations/:path*", "/api/ops-token/:path*", "/api/finance/:path*"],
 };
