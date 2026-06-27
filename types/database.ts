@@ -70,6 +70,10 @@ export type Employee = {
   company: string;
   role: OperatorRole;
   display_name: string | null;
+  /** Optional explicit Gmail mailbox this employee may read (email inbox). When
+   *  null/absent, the email routes derive a mailbox from company + login email.
+   *  Only present once the owner runs the optional ALTER in config/EMAIL_SETUP.md. */
+  mailbox?: string | null;
 };
 
 /** A money event in the finance durable plane. `company` is the home tenant
