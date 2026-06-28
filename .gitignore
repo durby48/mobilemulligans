@@ -35,3 +35,9 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# service-account / secret keys (never commit)
+*service-account*.json
+*-sa-*.json
+gmail-sa-*.json
+secrets/
