@@ -15,6 +15,15 @@ export const dynamic = "force-dynamic";
 
 const STATUSES: JobStatus[] = ["active", "completed", "on_hold"];
 
+/** Scheduling columns (added by ws-jobs-scheduling.sql); stripped on retry pre-migration. */
+const SCHED_COLS = ["scheduled_for", "scheduled_end"] as const;
+function isSchemaCacheMiss(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  if (error.code === "PGRST204" || error.code === "42703") return true;
+  return /column .* (does not exist|schema cache)/i.test(error.message ?? "");
+}
+const dateOrNull = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v : null);
+
 async function resolveCompany(): Promise<{ company: string } | { error: string; status: number }> {
   const auth = createSupabaseServerAuthClient();
   const {
@@ -60,17 +69,22 @@ export async function POST(request: Request) {
     : "active";
 
   const admin = getSupabaseServerClient();
-  const { data, error } = await admin
+  const baseRow = {
+    company: ctx.company,
+    name,
+    customer_id: typeof input.customer_id === "string" ? input.customer_id : null,
+    status,
+    description: typeof input.description === "string" ? input.description : null,
+  };
+  let ins = await admin
     .from("jobs")
-    .insert({
-      company: ctx.company,
-      name,
-      customer_id: typeof input.customer_id === "string" ? input.customer_id : null,
-      status,
-      description: typeof input.description === "string" ? input.description : null,
-    })
+    .insert({ ...baseRow, scheduled_for: dateOrNull(input.scheduled_for), scheduled_end: dateOrNull(input.scheduled_end) })
     .select("*")
     .single();
+  if (ins.error && isSchemaCacheMiss(ins.error)) {
+    ins = await admin.from("jobs").insert(baseRow).select("*").single();
+  }
+  const { data, error } = ins;
   if (error || !data) return NextResponse.json({ error: "insert failed" }, { status: 500 });
   return NextResponse.json(data, { status: 201, headers: { "Cache-Control": "no-store" } });
 }
@@ -93,15 +107,17 @@ export async function PATCH(request: Request) {
   if ("customer_id" in input) patch.customer_id = typeof input.customer_id === "string" ? input.customer_id : null;
   if ("description" in input) patch.description = typeof input.description === "string" ? input.description : null;
   if ("status" in input && STATUSES.includes(input.status as JobStatus)) patch.status = input.status as JobStatus;
+  if ("scheduled_for" in input) patch.scheduled_for = dateOrNull(input.scheduled_for);
+  if ("scheduled_end" in input) patch.scheduled_end = dateOrNull(input.scheduled_end);
 
   const admin = getSupabaseServerClient();
-  const { data, error } = await admin
-    .from("jobs")
-    .update(patch)
-    .eq("id", id)
-    .eq("company", ctx.company)
-    .select("*")
-    .single();
+  let upd = await admin.from("jobs").update(patch).eq("id", id).eq("company", ctx.company).select("*").single();
+  if (upd.error && isSchemaCacheMiss(upd.error)) {
+    const stripped: Partial<Job> = { ...patch };
+    for (const c of SCHED_COLS) delete stripped[c];
+    upd = await admin.from("jobs").update(stripped).eq("id", id).eq("company", ctx.company).select("*").single();
+  }
+  const { data, error } = upd;
   if (error || !data) return NextResponse.json({ error: "job not found" }, { status: 404 });
   return NextResponse.json(data, { headers: { "Cache-Control": "no-store" } });
 }

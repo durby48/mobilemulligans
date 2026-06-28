@@ -14,7 +14,30 @@ import type { FinanceEntry } from "@/types/database";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+/** Compute the inclusive [start, end] date window for a P&L period, anchored on
+ *  the caller's local `today` (YYYY-MM-DD) to avoid server-timezone drift. */
+function periodWindow(period: string, today: string): { start: string; end: string } | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(today)) return null;
+  if (period === "all") return null;
+  const end = today;
+  if (period === "day") return { start: today, end };
+  const d = new Date(`${today}T00:00:00Z`);
+  if (period === "week") {
+    d.setUTCDate(d.getUTCDate() - d.getUTCDay()); // back to Sunday
+    return { start: d.toISOString().slice(0, 10), end };
+  }
+  if (period === "month") {
+    return { start: `${today.slice(0, 7)}-01`, end };
+  }
+  return null;
+}
+
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const period = url.searchParams.get("period") ?? "all";
+  const today = url.searchParams.get("today") ?? new Date().toISOString().slice(0, 10);
+  const window = periodWindow(period, today);
+
   // 1. Who is asking? (session from cookies)
   const auth = createSupabaseServerAuthClient();
   const {
@@ -38,11 +61,10 @@ export async function GET() {
 
   // 3. Pull this company's entries (server-derived company only). select("*") so
   // newer columns (document_number/document_path) flow through without breaking
-  // pre-migration.
-  const { data: entries, error } = await admin
-    .from("finance_entries")
-    .select("*")
-    .eq("company", company);
+  // pre-migration. A period filter bounds occurred_on (dated entries only).
+  let entriesQuery = admin.from("finance_entries").select("*").eq("company", company);
+  if (window) entriesQuery = entriesQuery.gte("occurred_on", window.start).lte("occurred_on", window.end);
+  const { data: entries, error } = await entriesQuery;
   if (error) {
     return NextResponse.json({ error: "query failed" }, { status: 500 });
   }
@@ -115,10 +137,9 @@ export async function GET() {
   // Labor cost from logged employee hours (Σ hours × rate) folds into Expenses.
   // Degrades gracefully if the employee_hours table doesn't exist yet.
   let labor = 0;
-  const { data: hoursRows } = await admin
-    .from("employee_hours")
-    .select("hours, rate")
-    .eq("company", company);
+  let laborQuery = admin.from("employee_hours").select("hours, rate, occurred_on").eq("company", company);
+  if (window) laborQuery = laborQuery.gte("occurred_on", window.start).lte("occurred_on", window.end);
+  const { data: hoursRows } = await laborQuery;
   for (const h of hoursRows ?? []) {
     labor += (Number(h.hours) || 0) * (Number(h.rate) || 0);
   }
@@ -127,6 +148,7 @@ export async function GET() {
   return NextResponse.json(
     {
       company,
+      period,
       revenue,
       expenses: totalExpenses,
       labor,
