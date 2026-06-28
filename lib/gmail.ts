@@ -64,7 +64,7 @@ export function isGmailConfigured(): boolean {
  * Derive the mailbox an employee may read, SERVER-SIDE ONLY. Never trust a
  * client-supplied mailbox. Keyed on the employee's `company` so this code is
  * identical across both site repos.
- *   • mobile-mulligans → shared inbox info@mobilemulligans.com (all MM staff).
+ *   • mobile-mulligans → shared inbox info@mobilemulligans.net (all MM staff).
  *   • dc-solar → each employee sees THEIR OWN mailbox (devon@/isaiah@); we use an
  *     explicit `employees.mailbox` override if present, else the login email when
  *     it is a @dcsolarkc.com address, else a configured default.
@@ -76,7 +76,7 @@ export function resolveMailbox(emp: {
 }): string | null {
   if (emp.mailbox && emp.mailbox.trim()) return emp.mailbox.trim();
   if (emp.company === "mobile-mulligans") {
-    return process.env.MM_SHARED_MAILBOX || "info@mobilemulligans.com";
+    return process.env.MM_SHARED_MAILBOX || "info@mobilemulligans.net";
   }
   if (emp.company === "dc-solar") {
     if (emp.email && emp.email.toLowerCase().endsWith("@dcsolarkc.com")) return emp.email;

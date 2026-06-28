@@ -63,13 +63,33 @@ export async function GET() {
     >
   >;
 
+  // Cash-basis P&L. Revenue is money ACTUALLY RECEIVED (type 'payment'), never
+  // estimates (proposals/projections) or invoices (billed but not yet paid).
+  //   • payment  → revenue (cash in;   a 'payment' marked 'out' is a refund → −)
+  //   • expense  → expenses (cash out; an 'expense' marked 'in' is a refund → −)
+  //   • estimate → pipeline    (projection only, NOT in revenue/net)
+  //   • invoice  → outstanding (billed/receivable, NOT in revenue/net until paid)
   let revenue = 0;
   let expenses = 0;
+  let pipeline = 0; // estimates — projected, not realized
+  let outstanding = 0; // invoices billed but not yet counted as revenue
   const byType: Record<string, number> = {};
   for (const r of rows) {
     const amount = Number(r.amount) || 0;
-    if (r.direction === "in") revenue += amount;
-    else if (r.direction === "out") expenses += amount;
+    switch (r.type) {
+      case "payment":
+        revenue += r.direction === "out" ? -amount : amount;
+        break;
+      case "expense":
+        expenses += r.direction === "in" ? -amount : amount;
+        break;
+      case "estimate":
+        pipeline += amount;
+        break;
+      case "invoice":
+        outstanding += amount;
+        break;
+    }
     byType[r.type] = (byType[r.type] ?? 0) + amount;
   }
 
@@ -104,6 +124,8 @@ export async function GET() {
       revenue,
       expenses,
       net: revenue - expenses,
+      pipeline,
+      outstanding,
       byType,
       recent,
     },
