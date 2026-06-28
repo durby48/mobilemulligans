@@ -12,7 +12,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { createDraft, draftsMailbox, isGmailConfigured } from "@/lib/gmail";
 import { renderEmail, type EmailTemplateKey } from "@/lib/emailTemplates";
 
-const TEMPLATE_KEYS = new Set<EmailTemplateKey>(["estimate", "invoice", "payment"]);
+const TEMPLATE_KEYS = new Set<EmailTemplateKey>(["estimate", "invoice", "payment", "receipt", "scheduled"]);
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,6 +49,9 @@ export async function POST(request: Request) {
       documentNumber: typeof input.documentNumber === "string" ? input.documentNumber : null,
       amount: typeof input.amount === "number" ? input.amount : null,
       currency: typeof input.currency === "string" ? input.currency : null,
+      jobName: typeof input.jobName === "string" ? input.jobName : null,
+      scheduledFor: typeof input.scheduledFor === "string" ? input.scheduledFor : null,
+      scheduledEnd: typeof input.scheduledEnd === "string" ? input.scheduledEnd : null,
       note: typeof input.note === "string" ? input.note : null,
     });
     subject = rendered.subject;

@@ -7,18 +7,33 @@
 import { siteConfig } from "@/lib/site";
 import { escapeHtml } from "@/lib/email";
 
-export type EmailTemplateKey = "estimate" | "invoice" | "payment";
+export type EmailTemplateKey = "estimate" | "invoice" | "payment" | "receipt" | "scheduled";
 
 export interface EmailTemplateCtx {
   customerName?: string | null;
   documentNumber?: string | null;
   amount?: number | null;
   currency?: string | null;
+  /** Scheduling-confirmation context. */
+  jobName?: string | null;
+  scheduledFor?: string | null; // YYYY-MM-DD
+  scheduledEnd?: string | null; // YYYY-MM-DD
   /** Optional personalized line(s) from Eli, slotted into the body. */
   note?: string | null;
 }
 
+function prettyDate(s: string | null | undefined): string {
+  if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return "";
+  try {
+    return new Date(`${s}T12:00:00`).toLocaleDateString("en-US", { weekday: "short", year: "numeric", month: "short", day: "numeric" });
+  } catch {
+    return s;
+  }
+}
+
 const IS_DC = siteConfig.domain.includes("dcsolarkc");
+/** The per-company word for a `job` (DC Solar) / `event` (Mobile Mulligans). */
+const SCHED_NOUN = IS_DC ? "job" : "event";
 const BRAND = {
   accent: IS_DC ? "#1f6f8b" : "#c9a227",
   accentDark: IS_DC ? "#16505f" : "#9e7d18",
@@ -64,6 +79,27 @@ const COPY: Record<EmailTemplateKey, Copy> = {
       `Thank you so much for your payment${c.amount != null ? ` of <strong>${money(c.currency, c.amount)}</strong>` : ""}! ` +
       `We truly appreciate your business and the trust you've placed in ${escapeHtml(siteConfig.name)}.`,
     reviewLine: "We'd love your feedback —",
+  },
+  receipt: {
+    subject: (c) => `Your ${siteConfig.name} receipt${c.documentNumber ? ` ${c.documentNumber}` : ""}`,
+    lead: (c) =>
+      `Thank you for your payment${c.amount != null ? ` of <strong>${money(c.currency, c.amount)}</strong>` : ""} — this confirms we've received it` +
+      `${c.documentNumber ? `, receipt <strong>${escapeHtml(c.documentNumber)}</strong>` : ""}. ` +
+      `We truly appreciate your business, and your receipt is attached for your records.`,
+    reviewLine: "Thanks again for choosing us —",
+  },
+  scheduled: {
+    subject: () => `Your ${siteConfig.name} ${SCHED_NOUN} is scheduled`,
+    lead: (c) => {
+      const when = prettyDate(c.scheduledFor);
+      const end = prettyDate(c.scheduledEnd);
+      return (
+        `Great news — your ${SCHED_NOUN}${c.jobName ? ` "<strong>${escapeHtml(c.jobName)}</strong>"` : ""} is confirmed` +
+        `${when ? ` for <strong>${when}</strong>` : ""}${end && end !== when ? ` through <strong>${end}</strong>` : ""}. ` +
+        `We're looking forward to it! Please reply if you need to make any changes or have questions before then.`
+      );
+    },
+    reviewLine: "Worked with us before?",
   },
 };
 
