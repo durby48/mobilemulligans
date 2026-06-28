@@ -108,13 +108,14 @@ function headerSafe(s: string): string {
  */
 export async function createDraft(
   mailbox: string,
-  msg: { to?: string | null; subject: string; body: string },
+  msg: { to?: string | null; subject: string; body: string; html?: boolean },
 ): Promise<{ id: string }> {
   const token = await getAccessToken(mailbox, GMAIL_COMPOSE_SCOPE);
+  const contentType = msg.html ? "text/html; charset=utf-8" : "text/plain; charset=utf-8";
   const lines = [
     msg.to ? `To: ${headerSafe(msg.to)}` : "",
     `Subject: ${headerSafe(msg.subject)}`,
-    "Content-Type: text/plain; charset=utf-8",
+    `Content-Type: ${contentType}`,
     "MIME-Version: 1.0",
     "",
     String(msg.body ?? ""),

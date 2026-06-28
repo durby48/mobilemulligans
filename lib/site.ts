@@ -8,6 +8,9 @@ export const siteConfig = {
   email: "info@mobilemulligans.net",
   phone: "816-274-2415",
   serviceArea: "Serving the greater Kansas City metro area & surrounding communities",
+  /** "Write a review" link used in customer emails. Override with env REVIEW_URL
+   *  (set to your Google "write a review" link for best results). */
+  reviewUrl: "https://www.google.com/search?q=Mobile+Mulligans+golf+simulator+reviews",
   social: {
     instagram: "https://instagram.com/",
     facebook: "https://facebook.com/",

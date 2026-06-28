@@ -10,6 +10,9 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerAuthClient } from "@/lib/supabase/auth-server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { createDraft, draftsMailbox, isGmailConfigured } from "@/lib/gmail";
+import { renderEmail, type EmailTemplateKey } from "@/lib/emailTemplates";
+
+const TEMPLATE_KEYS = new Set<EmailTemplateKey>(["estimate", "invoice", "payment"]);
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,15 +36,35 @@ export async function POST(request: Request) {
   let body: unknown;
   try { body = await request.json(); } catch { return NextResponse.json({ error: "invalid JSON body" }, { status: 422 }); }
   const input = (body ?? {}) as Record<string, unknown>;
-  const subject = typeof input.subject === "string" ? input.subject : "";
-  const text = typeof input.body === "string" ? input.body : "";
   const to = typeof input.to === "string" ? input.to : null;
-  if (!subject.trim() || !text.trim()) {
-    return NextResponse.json({ error: "subject and body are required" }, { status: 422 });
+  const template = typeof input.template === "string" ? input.template : "";
+
+  // Preferred path: render the company-branded template (logo + review CTA).
+  let subject = "";
+  let content = "";
+  let html = false;
+  if (TEMPLATE_KEYS.has(template as EmailTemplateKey)) {
+    const rendered = renderEmail(template as EmailTemplateKey, {
+      customerName: typeof input.customerName === "string" ? input.customerName : null,
+      documentNumber: typeof input.documentNumber === "string" ? input.documentNumber : null,
+      amount: typeof input.amount === "number" ? input.amount : null,
+      currency: typeof input.currency === "string" ? input.currency : null,
+      note: typeof input.note === "string" ? input.note : null,
+    });
+    subject = rendered.subject;
+    content = rendered.html;
+    html = true;
+  } else {
+    // Legacy/fallback: raw subject + body.
+    subject = typeof input.subject === "string" ? input.subject : "";
+    content = typeof input.body === "string" ? input.body : "";
+  }
+  if (!subject.trim() || !content.trim()) {
+    return NextResponse.json({ error: "a template (or subject + body) is required" }, { status: 422 });
   }
 
   try {
-    const draft = await createDraft(mailbox, { to, subject, body: text });
+    const draft = await createDraft(mailbox, { to, subject, body: content, html });
     return NextResponse.json({ ok: true, mailbox, draftId: draft.id }, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
     console.error("email draft error:", err);
