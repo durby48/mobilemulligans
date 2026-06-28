@@ -63,12 +63,15 @@ export async function GET() {
     >
   >;
 
-  // Cash-basis P&L. Revenue is money ACTUALLY RECEIVED (type 'payment'), never
-  // estimates (proposals/projections) or invoices (billed but not yet paid).
-  //   • payment  → revenue (cash in;   a 'payment' marked 'out' is a refund → −)
-  //   • expense  → expenses (cash out; an 'expense' marked 'in' is a refund → −)
+  // Cash-basis P&L, TYPE-DRIVEN. The entry TYPE alone decides the sign, so a
+  // mis-set direction can never flip the math (that was the old bug):
+  //   • payment  → revenue     (cash received)
+  //   • expense  → expenses    (cash paid out)
   //   • estimate → pipeline    (projection only, NOT in revenue/net)
   //   • invoice  → outstanding (billed/receivable, NOT in revenue/net until paid)
+  // A refund/reversal is flagged with status === "refund", the ONLY thing that
+  // negates a payment or expense. (Legacy rows have status "recorded", so their
+  // amount counts with its natural sign regardless of any stray direction.)
   let revenue = 0;
   let expenses = 0;
   let pipeline = 0; // estimates — projected, not realized
@@ -76,12 +79,13 @@ export async function GET() {
   const byType: Record<string, number> = {};
   for (const r of rows) {
     const amount = Number(r.amount) || 0;
+    const signed = r.status === "refund" ? -amount : amount;
     switch (r.type) {
       case "payment":
-        revenue += r.direction === "out" ? -amount : amount;
+        revenue += signed;
         break;
       case "expense":
-        expenses += r.direction === "in" ? -amount : amount;
+        expenses += signed;
         break;
       case "estimate":
         pipeline += amount;
