@@ -36,32 +36,18 @@ export async function GET() {
   }
   const company = emp.company;
 
-  // 3. Pull this company's entries (server-derived company only).
+  // 3. Pull this company's entries (server-derived company only). select("*") so
+  // newer columns (document_number/document_path) flow through without breaking
+  // pre-migration.
   const { data: entries, error } = await admin
     .from("finance_entries")
-    .select(
-      "id, type, direction, amount, currency, counterparty, description, occurred_on, status, created_at",
-    )
+    .select("*")
     .eq("company", company);
   if (error) {
     return NextResponse.json({ error: "query failed" }, { status: 500 });
   }
 
-  const rows = (entries ?? []) as Array<
-    Pick<
-      FinanceEntry,
-      | "id"
-      | "type"
-      | "direction"
-      | "amount"
-      | "currency"
-      | "counterparty"
-      | "description"
-      | "occurred_on"
-      | "status"
-      | "created_at"
-    >
-  >;
+  const rows = (entries ?? []) as FinanceEntry[];
 
   // Cash-basis P&L, TYPE-DRIVEN. The entry TYPE alone decides the sign, so a
   // mis-set direction can never flip the math (that was the old bug):
@@ -120,6 +106,10 @@ export async function GET() {
       description: r.description,
       occurred_on: r.occurred_on,
       status: r.status,
+      customer_id: r.customer_id ?? null,
+      job_id: r.job_id ?? null,
+      document_number: r.document_number ?? null,
+      document_path: r.document_path ?? null,
     }));
 
   return NextResponse.json(
