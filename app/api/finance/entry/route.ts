@@ -19,6 +19,16 @@ export const dynamic = "force-dynamic";
 const VALID_TYPES = new Set<FinanceType>(["invoice", "estimate", "expense", "payment"]);
 const VALID_DIRECTIONS = new Set<FinanceDirection>(["in", "out"]);
 
+/** The Pass 3 link columns; stripped on retry when the migration hasn't been run. */
+const LINK_COLS = ["customer_id", "job_id", "document_number", "document_path"] as const;
+
+/** True when an error means a column isn't in the schema (migration not yet run). */
+function isSchemaCacheMiss(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  if (error.code === "PGRST204" || error.code === "42703") return true;
+  return /column .* (does not exist|schema cache)/i.test(error.message ?? "");
+}
+
 export async function POST(request: Request) {
   // 1. Who is asking? (session from cookies)
   const auth = createSupabaseServerAuthClient();
@@ -92,26 +102,29 @@ export async function POST(request: Request) {
     if (cust.ok) customer_id = cust.customer.id;
   }
 
-  // 4. Insert with the SERVER-DERIVED company (never the client's).
-  const { data: created, error } = await admin
+  // 4. Insert with the SERVER-DERIVED company (never the client's). The Pass 3
+  // link columns may not exist yet (before the migration is run) — if so, retry
+  // without them so adding entries keeps working (graceful degradation).
+  const base = {
+    company,
+    type: type as FinanceType,
+    direction: direction as FinanceDirection,
+    amount,
+    currency,
+    counterparty,
+    description,
+    occurred_on,
+    status,
+  };
+  let ins = await admin
     .from("finance_entries")
-    .insert({
-      company,
-      type: type as FinanceType,
-      direction: direction as FinanceDirection,
-      amount,
-      currency,
-      counterparty,
-      description,
-      occurred_on,
-      status,
-      customer_id,
-      job_id,
-      document_number,
-      document_path,
-    })
+    .insert({ ...base, customer_id, job_id, document_number, document_path })
     .select("*")
     .single();
+  if (ins.error && isSchemaCacheMiss(ins.error)) {
+    ins = await admin.from("finance_entries").insert(base).select("*").single();
+  }
+  const { data: created, error } = ins;
 
   if (error || !created) {
     return NextResponse.json({ error: "insert failed" }, { status: 500 });
@@ -220,14 +233,29 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "no editable fields supplied" }, { status: 422 });
   }
 
-  // 5. Update, constrained to the employee's own company.
-  const { data: updated, error } = await admin
+  // 5. Update, constrained to the employee's own company. Retry without the Pass 3
+  // link columns if they don't exist yet (pre-migration graceful degradation).
+  let upd = await admin
     .from("finance_entries")
     .update(patch)
     .eq("id", id)
     .eq("company", company)
     .select("*")
     .single();
+  if (upd.error && isSchemaCacheMiss(upd.error)) {
+    const stripped: Partial<FinanceEntry> = { ...patch };
+    for (const c of LINK_COLS) delete stripped[c];
+    if (Object.keys(stripped).length > 0) {
+      upd = await admin
+        .from("finance_entries")
+        .update(stripped)
+        .eq("id", id)
+        .eq("company", company)
+        .select("*")
+        .single();
+    }
+  }
+  const { data: updated, error } = upd;
 
   if (error || !updated) {
     // No row matched the id within this company → not found (or not theirs).
