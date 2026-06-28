@@ -112,12 +112,25 @@ export async function GET() {
       document_path: r.document_path ?? null,
     }));
 
+  // Labor cost from logged employee hours (Σ hours × rate) folds into Expenses.
+  // Degrades gracefully if the employee_hours table doesn't exist yet.
+  let labor = 0;
+  const { data: hoursRows } = await admin
+    .from("employee_hours")
+    .select("hours, rate")
+    .eq("company", company);
+  for (const h of hoursRows ?? []) {
+    labor += (Number(h.hours) || 0) * (Number(h.rate) || 0);
+  }
+  const totalExpenses = expenses + labor;
+
   return NextResponse.json(
     {
       company,
       revenue,
-      expenses,
-      net: revenue - expenses,
+      expenses: totalExpenses,
+      labor,
+      net: revenue - totalExpenses,
       pipeline,
       outstanding,
       byType,
