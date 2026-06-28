@@ -24,6 +24,9 @@
 import crypto from "node:crypto";
 
 const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
+// Drafting needs compose; the SA's domain-wide delegation must authorize this
+// scope too (see config/EMAIL_SETUP.md). Reads still use readonly above.
+const GMAIL_COMPOSE_SCOPE = "https://www.googleapis.com/auth/gmail.compose";
 const TOKEN_URI = "https://oauth2.googleapis.com/token";
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1";
 
@@ -87,6 +90,50 @@ export function resolveMailbox(emp: {
   return emp.email || process.env.GOOGLE_DELEGATED_SUBJECT || null;
 }
 
+/** The mailbox whose Drafts folder receives agent-drafted customer emails. */
+export function draftsMailbox(company: string): string | null {
+  if (company === "dc-solar") return process.env.DC_DRAFTS_MAILBOX || "devon@dcsolarkc.com";
+  if (company === "mobile-mulligans") return process.env.MM_DRAFTS_MAILBOX || "info@mobilemulligans.net";
+  return null;
+}
+
+/** RFC822-ish header-safe single line (no CR/LF injection). */
+function headerSafe(s: string): string {
+  return String(s ?? "").replace(/[\r\n]+/g, " ").trim();
+}
+
+/**
+ * Create a Gmail DRAFT (not sent) in `mailbox`'s Drafts folder. Requires the SA
+ * to be delegated the gmail.compose scope for that mailbox's Workspace.
+ */
+export async function createDraft(
+  mailbox: string,
+  msg: { to?: string | null; subject: string; body: string },
+): Promise<{ id: string }> {
+  const token = await getAccessToken(mailbox, GMAIL_COMPOSE_SCOPE);
+  const lines = [
+    msg.to ? `To: ${headerSafe(msg.to)}` : "",
+    `Subject: ${headerSafe(msg.subject)}`,
+    "Content-Type: text/plain; charset=utf-8",
+    "MIME-Version: 1.0",
+    "",
+    String(msg.body ?? ""),
+  ].filter((l, i) => l !== "" || i >= 4); // keep the blank separator + body
+  const raw = base64url(Buffer.from(lines.join("\r\n"), "utf8"));
+  const url = `${GMAIL_API}/users/${encodeURIComponent(mailbox)}/drafts`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ message: { raw } }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`gmail drafts.create failed (${res.status}): ${detail.slice(0, 300)}`);
+  }
+  const json = (await res.json()) as { id?: string };
+  return { id: json.id ?? "" };
+}
+
 function loadServiceAccount(): ServiceAccount {
   const raw = process.env.GOOGLE_SA_KEY;
   if (!raw) throw new Error("GOOGLE_SA_KEY is not set");
@@ -120,7 +167,7 @@ function base64url(input: Buffer | string): string {
  * Mint a service-account assertion JWT impersonating `subject`, exchange it for
  * a short-lived OAuth2 access token with the gmail.readonly scope.
  */
-async function getAccessToken(subject: string): Promise<string> {
+async function getAccessToken(subject: string, scope: string = GMAIL_SCOPE): Promise<string> {
   const sa = loadServiceAccount();
   const now = Math.floor(Date.now() / 1000);
   const header = base64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
@@ -128,7 +175,7 @@ async function getAccessToken(subject: string): Promise<string> {
     JSON.stringify({
       iss: sa.client_email,
       sub: subject, // the mailbox to impersonate (domain-wide delegation)
-      scope: GMAIL_SCOPE,
+      scope,
       aud: sa.token_uri || TOKEN_URI,
       iat: now,
       exp: now + 3600,
