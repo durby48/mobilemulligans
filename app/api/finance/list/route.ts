@@ -13,7 +13,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
   // 1. Who is asking? (session from cookies)
   const auth = createSupabaseServerAuthClient();
   const {
@@ -35,14 +35,22 @@ export async function GET() {
   }
   const company = emp.company;
 
+  // Optional filters (portfolio / per-job rollup).
+  const url = new URL(request.url);
+  const customerId = url.searchParams.get("customer_id");
+  const jobId = url.searchParams.get("job_id");
+
   // 3. Latest 100 entries for this company (server-derived company only).
-  const { data: entries, error } = await admin
+  let query = admin
     .from("finance_entries")
     .select("*")
     .eq("company", company)
     .order("occurred_on", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
     .limit(100);
+  if (customerId) query = query.eq("customer_id", customerId);
+  if (jobId) query = query.eq("job_id", jobId);
+  const { data: entries, error } = await query;
   if (error) {
     return NextResponse.json({ error: "query failed" }, { status: 500 });
   }

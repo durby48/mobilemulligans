@@ -10,6 +10,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerAuthClient } from "@/lib/supabase/auth-server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { upsertCustomerByName } from "@/lib/customers";
 import type { FinanceType, FinanceDirection, FinanceEntry } from "@/types/database";
 
 export const runtime = "nodejs";
@@ -79,6 +80,17 @@ export async function POST(request: Request) {
   const occurred_on = typeof input.occurred_on === "string" ? input.occurred_on : null;
   const status =
     typeof input.status === "string" && input.status.trim() ? input.status : "recorded";
+  const job_id = typeof input.job_id === "string" ? input.job_id : null;
+  const document_number = typeof input.document_number === "string" ? input.document_number : null;
+  const document_path = typeof input.document_path === "string" ? input.document_path : null;
+
+  // Resolve the customer: trust an explicit customer_id, else upsert one from the
+  // counterparty name so every named entry links to a customer record.
+  let customer_id = typeof input.customer_id === "string" ? input.customer_id : null;
+  if (!customer_id && counterparty && counterparty.trim()) {
+    const cust = await upsertCustomerByName(admin, company, { name: counterparty });
+    if (cust.ok) customer_id = cust.customer.id;
+  }
 
   // 4. Insert with the SERVER-DERIVED company (never the client's).
   const { data: created, error } = await admin
@@ -93,6 +105,10 @@ export async function POST(request: Request) {
       description,
       occurred_on,
       status,
+      customer_id,
+      job_id,
+      document_number,
+      document_path,
     })
     .select("*")
     .single();
@@ -190,6 +206,14 @@ export async function PATCH(request: Request) {
   if ("status" in input) {
     patch.status =
       typeof input.status === "string" && input.status.trim() ? input.status : "recorded";
+  }
+  // Pass 3 links (customer/job/document). Used by the document write-back and the
+  // editable finance↔document hyperlink. Empty string clears the link.
+  for (const f of ["customer_id", "job_id", "document_number", "document_path"] as const) {
+    if (f in input) {
+      const v = input[f];
+      patch[f] = typeof v === "string" && v.trim() ? v : null;
+    }
   }
 
   if (Object.keys(patch).length === 0) {

@@ -60,5 +60,8 @@ export const config = {
     "/api/ops-token/:path*",
     "/api/finance/:path*",
     "/api/email/:path*",
+    "/api/customers/:path*",
+    "/api/jobs/:path*",
+    "/api/hours/:path*",
   ],
 };
