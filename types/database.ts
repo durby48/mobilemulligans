@@ -189,6 +189,82 @@ export type EmployeeHoursInput = {
   description?: string | null;
 };
 
+// ---------------------------------------------------------------------------
+// Employee records vault (sensitive HR / payroll data).
+//
+// Access is locked to a single login (see lib/pii/authz.ts) and the SSN + bank
+// numbers are stored ENCRYPTED (see lib/pii/crypto.ts) — the *_encrypted columns
+// hold ciphertext, never plaintext. The *_last4 columns let the UI show a masked
+// value without decrypting. RLS grants these tables to the service role only.
+// ---------------------------------------------------------------------------
+
+export type PayType = "hourly" | "salary";
+export type BankAccountType = "checking" | "savings";
+export type W4FilingStatus = "single" | "married_jointly" | "head_of_household";
+
+/** One sensitive record per employee. Encrypted fields end in `_encrypted`. */
+export type EmployeeRecord = {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  company: string;
+  employee_id: string;
+  legal_first_name: string | null;
+  legal_last_name: string | null;
+  date_of_birth: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  state: string | null;
+  postal_code: string | null;
+  phone: string | null;
+  ssn_encrypted: string | null;
+  ssn_last4: string | null;
+  bank_name: string | null;
+  account_type: BankAccountType | null;
+  routing_encrypted: string | null;
+  account_encrypted: string | null;
+  account_last4: string | null;
+  w4_filing_status: W4FilingStatus | null;
+  w4_multiple_jobs: boolean | null;
+  w4_dependents_amount: number | null;
+  w4_other_income: number | null;
+  w4_deductions: number | null;
+  w4_extra_withholding: number | null;
+  pay_type: PayType | null;
+  pay_rate: number | null;
+  notes: string | null;
+  updated_by: string | null;
+};
+
+export type EmployeeDocType = "w4" | "w2" | "paystub" | "payroll_report" | "other";
+
+/** Metadata for a file stored in the private `employee-docs` storage bucket. */
+export type EmployeeDocument = {
+  id: string;
+  created_at: string;
+  company: string;
+  employee_id: string;
+  doc_type: EmployeeDocType;
+  file_path: string;
+  file_name: string;
+  content_type: string | null;
+  size_bytes: number | null;
+  period_label: string | null;
+  uploaded_by: string | null;
+};
+
+/** Immutable audit trail of every access to / change of the vault. */
+export type EmployeeRecordAudit = {
+  id: string;
+  created_at: string;
+  actor_email: string;
+  company: string;
+  employee_id: string | null;
+  action: string;
+  detail: string | null;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -250,6 +326,24 @@ export type Database = {
         Row: EmployeeHours;
         Insert: EmployeeHoursInput & { id?: string; created_at?: string; company: string };
         Update: Partial<EmployeeHours>;
+        Relationships: [];
+      };
+      employee_records: {
+        Row: EmployeeRecord;
+        Insert: Partial<EmployeeRecord> & { company: string; employee_id: string };
+        Update: Partial<EmployeeRecord>;
+        Relationships: [];
+      };
+      employee_documents: {
+        Row: EmployeeDocument;
+        Insert: Omit<EmployeeDocument, "id" | "created_at"> & { id?: string; created_at?: string };
+        Update: Partial<EmployeeDocument>;
+        Relationships: [];
+      };
+      employee_record_audit: {
+        Row: EmployeeRecordAudit;
+        Insert: Omit<EmployeeRecordAudit, "id" | "created_at"> & { id?: string; created_at?: string };
+        Update: Partial<EmployeeRecordAudit>;
         Relationships: [];
       };
     };
