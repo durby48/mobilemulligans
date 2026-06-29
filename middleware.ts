@@ -65,5 +65,6 @@ export const config = {
     "/api/hours/:path*",
     "/api/employees/:path*",
     "/api/employee-records/:path*",
+    "/api/calendar/:path*",
   ],
 };
