@@ -264,3 +264,54 @@ export async function PATCH(request: Request) {
 
   return NextResponse.json(updated, { headers: { "Cache-Control": "no-store" } });
 }
+
+// DELETE — remove an entry. Same auth chain; constrained to the caller's own
+// company so an employee can only delete their company's rows. Id comes from the
+// query string (?id=…). This removes only the finance row; any already-generated
+// document PDF in the company folder is left in place (records are kept).
+export async function DELETE(request: Request) {
+  // 1. Session.
+  const auth = createSupabaseServerAuthClient();
+  const {
+    data: { user },
+  } = await auth.auth.getUser();
+  if (!user?.email) {
+    return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+  }
+
+  // 2. Authorized employee → company + role.
+  const admin = getSupabaseServerClient();
+  const { data: emp, error: empError } = await admin
+    .from("employees")
+    .select("company, role")
+    .eq("email", user.email)
+    .single();
+  if (empError || !emp) {
+    return NextResponse.json({ error: "not an authorized employee" }, { status: 403 });
+  }
+  if (emp.role === "viewer") {
+    return NextResponse.json({ error: "viewers cannot delete entries" }, { status: 403 });
+  }
+
+  // 3. Target id from the query string.
+  const id = new URL(request.url).searchParams.get("id");
+  if (!id || !id.trim()) {
+    return NextResponse.json({ error: "id is required" }, { status: 422 });
+  }
+
+  // 4. Delete, constrained to the employee's own company.
+  const { data: deleted, error } = await admin
+    .from("finance_entries")
+    .delete()
+    .eq("id", id)
+    .eq("company", emp.company)
+    .select("id")
+    .maybeSingle();
+  if (error) {
+    return NextResponse.json({ error: "delete failed" }, { status: 500 });
+  }
+  if (!deleted) {
+    return NextResponse.json({ error: "entry not found" }, { status: 404 });
+  }
+  return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
+}
