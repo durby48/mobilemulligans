@@ -121,3 +121,14 @@ export async function PATCH(request: Request) {
   if (error || !data) return NextResponse.json({ error: "job not found" }, { status: 404 });
   return NextResponse.json(data, { headers: { "Cache-Control": "no-store" } });
 }
+
+export async function DELETE(request: Request) {
+  const ctx = await resolveCompany();
+  if ("error" in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status });
+  const id = new URL(request.url).searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "id is required" }, { status: 422 });
+  const admin = getSupabaseServerClient();
+  const { error } = await admin.from("jobs").delete().eq("id", id).eq("company", ctx.company);
+  if (error) return NextResponse.json({ error: "delete failed" }, { status: 500 });
+  return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
+}
