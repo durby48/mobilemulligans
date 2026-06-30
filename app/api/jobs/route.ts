@@ -24,6 +24,37 @@ function isSchemaCacheMiss(error: { code?: string; message?: string } | null): b
 }
 const dateOrNull = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v : null);
 
+/** Offending column name from a PostgREST schema-cache-miss message. */
+function missingColumn(error: { message?: string } | null): string | null {
+  const m = /'([a-z_]+)' column|column "?([a-z_]+)"?/i.exec(error?.message ?? "");
+  return (m && (m[1] || m[2])) || null;
+}
+
+/** companyId → short code used in the job moniker (MM-26001). */
+const COMPANY_CODE: Record<string, string> = { "dc-solar": "DC", "mobile-mulligans": "MM" };
+
+/** Allocate the next job moniker for a company + current year (e.g. MM-26001).
+ *  Reconciles against existing job_numbers; returns null for an unknown company. */
+async function allocateJobNumber(
+  admin: ReturnType<typeof getSupabaseServerClient>,
+  company: string,
+): Promise<string | null> {
+  const code = COMPANY_CODE[company];
+  if (!code) return null;
+  const yy = String(new Date().getFullYear() % 100).padStart(2, "0");
+  const { data } = await admin.from("jobs").select("*").eq("company", company);
+  const re = new RegExp(`^${code}-${yy}(\\d+)$`);
+  let max = 0;
+  for (const r of (data ?? []) as Array<{ job_number?: string | null }>) {
+    const m = re.exec(r.job_number ?? "");
+    if (m) {
+      const n = Number(m[1]);
+      if (n > max) max = n;
+    }
+  }
+  return `${code}-${yy}${String(max + 1).padStart(3, "0")}`;
+}
+
 async function resolveCompany(): Promise<{ company: string } | { error: string; status: number }> {
   const auth = createSupabaseServerAuthClient();
   const {
@@ -76,13 +107,21 @@ export async function POST(request: Request) {
     status,
     description: typeof input.description === "string" ? input.description : null,
   };
-  let ins = await admin
-    .from("jobs")
-    .insert({ ...baseRow, scheduled_for: dateOrNull(input.scheduled_for), scheduled_end: dateOrNull(input.scheduled_end) })
-    .select("*")
-    .single();
-  if (ins.error && isSchemaCacheMiss(ins.error)) {
-    ins = await admin.from("jobs").insert(baseRow).select("*").single();
+  const job_number = await allocateJobNumber(admin, ctx.company);
+  const full = {
+    ...baseRow,
+    scheduled_for: dateOrNull(input.scheduled_for),
+    scheduled_end: dateOrNull(input.scheduled_end),
+    job_number,
+  };
+  const fullRec = full as Record<string, unknown>;
+  let ins = await admin.from("jobs").insert(full).select("*").single();
+  // Drop only the column(s) the schema lacks yet (job_number / scheduled_*).
+  while (ins.error && isSchemaCacheMiss(ins.error)) {
+    const col = missingColumn(ins.error);
+    if (!col || !(col in fullRec)) break;
+    delete fullRec[col];
+    ins = await admin.from("jobs").insert(full).select("*").single();
   }
   const { data, error } = ins;
   if (error || !data) return NextResponse.json({ error: "insert failed" }, { status: 500 });
