@@ -132,6 +132,7 @@ export async function GET(request: Request) {
       job_id: r.job_id ?? null,
       document_number: r.document_number ?? null,
       document_path: r.document_path ?? null,
+      line_items: r.line_items ?? null,
     }));
 
   // Labor cost from logged employee hours (Σ hours × rate) folds into Expenses.
