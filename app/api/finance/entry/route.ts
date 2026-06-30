@@ -19,14 +19,36 @@ export const dynamic = "force-dynamic";
 const VALID_TYPES = new Set<FinanceType>(["invoice", "estimate", "expense", "payment"]);
 const VALID_DIRECTIONS = new Set<FinanceDirection>(["in", "out"]);
 
-/** The Pass 3 link columns; stripped on retry when the migration hasn't been run. */
-const LINK_COLS = ["customer_id", "job_id", "document_number", "document_path"] as const;
-
 /** True when an error means a column isn't in the schema (migration not yet run). */
 function isSchemaCacheMiss(error: { code?: string; message?: string } | null): boolean {
   if (!error) return false;
   if (error.code === "PGRST204" || error.code === "42703") return true;
   return /column .* (does not exist|schema cache)/i.test(error.message ?? "");
+}
+
+/** The offending column name from a PostgREST schema-cache-miss error message. */
+function missingColumn(error: { message?: string } | null): string | null {
+  const m = /'([a-z_]+)' column|column "?([a-z_]+)"?/i.exec(error?.message ?? "");
+  return (m && (m[1] || m[2])) || null;
+}
+
+/** Coerce incoming line items to {name, description, qty, rate}; null when empty. */
+function sanitizeLineItems(
+  v: unknown,
+): Array<{ name: string | null; description: string | null; qty: number; rate: number }> | null {
+  if (!Array.isArray(v)) return null;
+  const out = v
+    .map((r) => {
+      const o = (r ?? {}) as Record<string, unknown>;
+      return {
+        name: typeof o.name === "string" && o.name.trim() ? o.name.trim() : null,
+        description: typeof o.description === "string" && o.description.trim() ? o.description.trim() : null,
+        qty: Number(o.qty) || 0,
+        rate: Number(o.rate) || 0,
+      };
+    })
+    .filter((l) => l.name || l.description || l.qty || l.rate);
+  return out.length ? out : null;
 }
 
 export async function POST(request: Request) {
@@ -93,6 +115,7 @@ export async function POST(request: Request) {
   const job_id = typeof input.job_id === "string" ? input.job_id : null;
   const document_number = typeof input.document_number === "string" ? input.document_number : null;
   const document_path = typeof input.document_path === "string" ? input.document_path : null;
+  const line_items = sanitizeLineItems(input.line_items);
 
   // Resolve the customer: trust an explicit customer_id, else upsert one from the
   // counterparty name so every named entry links to a customer record.
@@ -116,13 +139,16 @@ export async function POST(request: Request) {
     occurred_on,
     status,
   };
-  let ins = await admin
-    .from("finance_entries")
-    .insert({ ...base, customer_id, job_id, document_number, document_path })
-    .select("*")
-    .single();
-  if (ins.error && isSchemaCacheMiss(ins.error)) {
-    ins = await admin.from("finance_entries").insert(base).select("*").single();
+  const full = { ...base, customer_id, job_id, document_number, document_path, line_items };
+  const fullRec = full as Record<string, unknown>; // mutation/inspection view
+  let ins = await admin.from("finance_entries").insert(full).select("*").single();
+  // Drop ONLY the column(s) the schema doesn't have yet, one at a time, so a
+  // missing line_items column never costs us the (already-migrated) link columns.
+  while (ins.error && isSchemaCacheMiss(ins.error)) {
+    const col = missingColumn(ins.error);
+    if (!col || !(col in fullRec)) break;
+    delete fullRec[col];
+    ins = await admin.from("finance_entries").insert(full).select("*").single();
   }
   const { data: created, error } = ins;
 
@@ -228,13 +254,18 @@ export async function PATCH(request: Request) {
       patch[f] = typeof v === "string" && v.trim() ? v : null;
     }
   }
+  if ("line_items" in input) {
+    patch.line_items = sanitizeLineItems(input.line_items);
+  }
 
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: "no editable fields supplied" }, { status: 422 });
   }
 
-  // 5. Update, constrained to the employee's own company. Retry without the Pass 3
-  // link columns if they don't exist yet (pre-migration graceful degradation).
+  // 5. Update, constrained to the employee's own company. If a column isn't in the
+  // schema yet (pre-migration), drop ONLY that column and retry — so a missing
+  // line_items column never strips the (already-migrated) link columns.
+  const patchRec = patch as Record<string, unknown>; // mutation/inspection view
   let upd = await admin
     .from("finance_entries")
     .update(patch)
@@ -242,18 +273,18 @@ export async function PATCH(request: Request) {
     .eq("company", company)
     .select("*")
     .single();
-  if (upd.error && isSchemaCacheMiss(upd.error)) {
-    const stripped: Partial<FinanceEntry> = { ...patch };
-    for (const c of LINK_COLS) delete stripped[c];
-    if (Object.keys(stripped).length > 0) {
-      upd = await admin
-        .from("finance_entries")
-        .update(stripped)
-        .eq("id", id)
-        .eq("company", company)
-        .select("*")
-        .single();
-    }
+  while (upd.error && isSchemaCacheMiss(upd.error)) {
+    const col = missingColumn(upd.error);
+    if (!col || !(col in patchRec)) break;
+    delete patchRec[col];
+    if (Object.keys(patchRec).length === 0) break;
+    upd = await admin
+      .from("finance_entries")
+      .update(patch)
+      .eq("id", id)
+      .eq("company", company)
+      .select("*")
+      .single();
   }
   const { data: updated, error } = upd;
 

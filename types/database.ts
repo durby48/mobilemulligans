@@ -82,6 +82,14 @@ export type Employee = {
 export type FinanceType = "invoice" | "estimate" | "expense" | "payment";
 export type FinanceDirection = "in" | "out";
 
+/** One itemized line on a finance entry / its generated document. */
+export type FinanceLineItem = {
+  name?: string | null;
+  description?: string | null;
+  qty: number;
+  rate: number;
+};
+
 export type FinanceEntry = {
   id: string;
   created_at: string;
@@ -101,6 +109,8 @@ export type FinanceEntry = {
   job_id?: string | null;
   document_number?: string | null;
   document_path?: string | null;
+  /** Itemized lines (jsonb; present once ws-finance-line-items.sql is run). */
+  line_items?: FinanceLineItem[] | null;
 };
 
 /** Shape accepted by POST /api/finance/entry (company is server-derived). */
@@ -117,6 +127,7 @@ export type FinanceEntryInput = {
   job_id?: string | null;
   document_number?: string | null;
   document_path?: string | null;
+  line_items?: FinanceLineItem[] | null;
 };
 
 /** A customer in the per-company customer library (Supabase source of truth). */

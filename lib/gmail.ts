@@ -108,19 +108,61 @@ function headerSafe(s: string): string {
  */
 export async function createDraft(
   mailbox: string,
-  msg: { to?: string | null; subject: string; body: string; html?: boolean },
+  msg: {
+    to?: string | null;
+    subject: string;
+    body: string;
+    html?: boolean;
+    /** Optional file to attach (e.g. the generated PDF). base64 = standard base64. */
+    attachment?: { filename: string; mimeType: string; base64: string } | null;
+  },
 ): Promise<{ id: string }> {
   const token = await getAccessToken(mailbox, GMAIL_COMPOSE_SCOPE);
   const contentType = msg.html ? "text/html; charset=utf-8" : "text/plain; charset=utf-8";
-  const lines = [
-    msg.to ? `To: ${headerSafe(msg.to)}` : "",
-    `Subject: ${headerSafe(msg.subject)}`,
-    `Content-Type: ${contentType}`,
-    "MIME-Version: 1.0",
-    "",
-    String(msg.body ?? ""),
-  ].filter((l, i) => l !== "" || i >= 4); // keep the blank separator + body
-  const raw = base64url(Buffer.from(lines.join("\r\n"), "utf8"));
+
+  let mime: string;
+  if (msg.attachment && msg.attachment.base64) {
+    // multipart/mixed: HTML/text body part + the attachment part.
+    const att = msg.attachment;
+    const boundary = `mixed_${base64url(`${mailbox}:${msg.subject}`).slice(0, 24)}`;
+    const safeName = headerSafe(att.filename || "document.pdf");
+    // Standard base64, hard-wrapped at 76 cols per MIME.
+    const wrapped = att.base64.replace(/[\r\n]/g, "").replace(/.{1,76}/g, "$&\r\n").trimEnd();
+    const headers: string[] = [];
+    if (msg.to) headers.push(`To: ${headerSafe(msg.to)}`);
+    headers.push(`Subject: ${headerSafe(msg.subject)}`);
+    headers.push("MIME-Version: 1.0");
+    headers.push(`Content-Type: multipart/mixed; boundary="${boundary}"`);
+    mime = [
+      ...headers,
+      "",
+      `--${boundary}`,
+      `Content-Type: ${contentType}`,
+      "",
+      String(msg.body ?? ""),
+      "",
+      `--${boundary}`,
+      `Content-Type: ${att.mimeType || "application/octet-stream"}; name="${safeName}"`,
+      `Content-Disposition: attachment; filename="${safeName}"`,
+      "Content-Transfer-Encoding: base64",
+      "",
+      wrapped,
+      `--${boundary}--`,
+      "",
+    ].join("\r\n");
+  } else {
+    mime = [
+      msg.to ? `To: ${headerSafe(msg.to)}` : "",
+      `Subject: ${headerSafe(msg.subject)}`,
+      `Content-Type: ${contentType}`,
+      "MIME-Version: 1.0",
+      "",
+      String(msg.body ?? ""),
+    ]
+      .filter((l, i) => l !== "" || i >= 4) // keep the blank separator + body
+      .join("\r\n");
+  }
+  const raw = base64url(Buffer.from(mime, "utf8"));
   const url = `${GMAIL_API}/users/${encodeURIComponent(mailbox)}/drafts`;
   const res = await fetch(url, {
     method: "POST",

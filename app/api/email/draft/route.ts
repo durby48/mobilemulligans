@@ -66,8 +66,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "a template (or subject + body) is required" }, { status: 422 });
   }
 
+  // Optional attachment (e.g. the generated PDF) — base64 from the PC.
+  let attachment: { filename: string; mimeType: string; base64: string } | null = null;
+  if (input.attachment && typeof input.attachment === "object") {
+    const a = input.attachment as Record<string, unknown>;
+    if (typeof a.base64 === "string" && a.base64) {
+      attachment = {
+        filename: typeof a.filename === "string" && a.filename ? a.filename : "document.pdf",
+        mimeType: typeof a.mimeType === "string" && a.mimeType ? a.mimeType : "application/pdf",
+        base64: a.base64,
+      };
+    }
+  }
+
   try {
-    const draft = await createDraft(mailbox, { to, subject, body: content, html });
+    const draft = await createDraft(mailbox, { to, subject, body: content, html, attachment });
     return NextResponse.json({ ok: true, mailbox, draftId: draft.id }, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
     console.error("email draft error:", err);
