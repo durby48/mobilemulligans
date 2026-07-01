@@ -52,6 +52,7 @@ export async function POST(request: Request) {
       jobName: typeof input.jobName === "string" ? input.jobName : null,
       scheduledFor: typeof input.scheduledFor === "string" ? input.scheduledFor : null,
       scheduledEnd: typeof input.scheduledEnd === "string" ? input.scheduledEnd : null,
+      jobAddress: typeof input.jobAddress === "string" ? input.jobAddress : null,
       note: typeof input.note === "string" ? input.note : null,
     });
     subject = rendered.subject;

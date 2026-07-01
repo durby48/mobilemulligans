@@ -15,8 +15,6 @@ export const dynamic = "force-dynamic";
 
 const STATUSES: JobStatus[] = ["active", "completed", "on_hold"];
 
-/** Scheduling columns (added by ws-jobs-scheduling.sql); stripped on retry pre-migration. */
-const SCHED_COLS = ["scheduled_for", "scheduled_end"] as const;
 function isSchemaCacheMiss(error: { code?: string; message?: string } | null): boolean {
   if (!error) return false;
   if (error.code === "PGRST204" || error.code === "42703") return true;
@@ -113,6 +111,7 @@ export async function POST(request: Request) {
     scheduled_for: dateOrNull(input.scheduled_for),
     scheduled_end: dateOrNull(input.scheduled_end),
     job_number,
+    address: typeof input.address === "string" ? input.address : null,
   };
   const fullRec = full as Record<string, unknown>;
   let ins = await admin.from("jobs").insert(full).select("*").single();
@@ -148,13 +147,18 @@ export async function PATCH(request: Request) {
   if ("status" in input && STATUSES.includes(input.status as JobStatus)) patch.status = input.status as JobStatus;
   if ("scheduled_for" in input) patch.scheduled_for = dateOrNull(input.scheduled_for);
   if ("scheduled_end" in input) patch.scheduled_end = dateOrNull(input.scheduled_end);
+  if ("address" in input) patch.address = typeof input.address === "string" ? input.address : null;
 
   const admin = getSupabaseServerClient();
+  const patchRec = patch as Record<string, unknown>;
   let upd = await admin.from("jobs").update(patch).eq("id", id).eq("company", ctx.company).select("*").single();
-  if (upd.error && isSchemaCacheMiss(upd.error)) {
-    const stripped: Partial<Job> = { ...patch };
-    for (const c of SCHED_COLS) delete stripped[c];
-    upd = await admin.from("jobs").update(stripped).eq("id", id).eq("company", ctx.company).select("*").single();
+  // Drop only the column(s) the schema lacks yet (address / scheduled_*).
+  while (upd.error && isSchemaCacheMiss(upd.error)) {
+    const col = missingColumn(upd.error);
+    if (!col || !(col in patchRec)) break;
+    delete patchRec[col];
+    if (Object.keys(patchRec).length === 0) break;
+    upd = await admin.from("jobs").update(patch).eq("id", id).eq("company", ctx.company).select("*").single();
   }
   const { data, error } = upd;
   if (error || !data) return NextResponse.json({ error: "job not found" }, { status: 404 });

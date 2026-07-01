@@ -18,6 +18,8 @@ export interface EmailTemplateCtx {
   jobName?: string | null;
   scheduledFor?: string | null; // YYYY-MM-DD
   scheduledEnd?: string | null; // YYYY-MM-DD
+  /** Job service/site address — appended to the subject line when present. */
+  jobAddress?: string | null;
   /** Optional personalized line(s) from Eli, slotted into the body. */
   note?: string | null;
 }
@@ -108,7 +110,8 @@ export function renderEmail(key: EmailTemplateKey, ctx: EmailTemplateCtx): { sub
   const copy = COPY[key];
   const name = (ctx.customerName ?? "").trim() || "there";
   const note = (ctx.note ?? "").trim();
-  const subject = copy.subject(ctx);
+  const addr = (ctx.jobAddress ?? "").trim();
+  const subject = copy.subject(ctx) + (addr ? ` — ${addr}` : "");
 
   const html = `<!doctype html><html><body style="margin:0;padding:0;background:#f4f6f8;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:24px 0;">
