@@ -2,11 +2,22 @@ import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { validateWaitlistInput } from "@/lib/validation";
 import { sendNotificationEmail, escapeHtml } from "@/lib/email";
+import { rateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  const ip =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const rl = rateLimit(`waitlist:${ip}`);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests — please try again later." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+    );
+  }
+
   let raw: unknown;
   try {
     raw = await request.json();
@@ -32,7 +43,7 @@ export async function POST(request: Request) {
       .upsert(result.data, { onConflict: "email", ignoreDuplicates: true });
 
     if (error) {
-      console.error("Supabase waitlist insert error:", error.message);
+      console.error("waitlist insert failed", error.code ?? "unknown");
       return NextResponse.json(
         { ok: false, message: "We couldn't add you just now. Please try again shortly." },
         { status: 500 }
@@ -53,7 +64,10 @@ export async function POST(request: Request) {
       `,
     });
   } catch (err) {
-    console.error("Waitlist signup failed:", err);
+    console.error(
+      "waitlist signup failed",
+      (err as { code?: string } | null)?.code ?? "unknown"
+    );
     return NextResponse.json(
       { ok: false, message: "Waitlist service is not configured. Please email us directly." },
       { status: 500 }

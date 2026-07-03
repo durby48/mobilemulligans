@@ -14,6 +14,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerAuthClient } from "@/lib/supabase/auth-server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { mintOpsToken, type OperatorRole } from "@/lib/ops-jwt";
+import { assertServerEnv } from "@/lib/env";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +22,10 @@ export const dynamic = "force-dynamic";
 const VALID_ROLES = new Set<OperatorRole>(["owner", "operator", "viewer"]);
 
 export async function GET() {
+  // 0. Fail loudly (with the full list of missing vars) if the deploy is
+  //    misconfigured — this is the first route every employee hits.
+  assertServerEnv();
+
   // 1. Who is asking? (session from cookies)
   const auth = createSupabaseServerAuthClient();
   const {

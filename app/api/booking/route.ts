@@ -2,11 +2,22 @@ import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { validateBookingInput } from "@/lib/validation";
 import { sendNotificationEmail, escapeHtml } from "@/lib/email";
+import { rateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  const ip =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const rl = rateLimit(`booking:${ip}`);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests — please try again later." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+    );
+  }
+
   let raw: unknown;
   try {
     raw = await request.json();
@@ -32,7 +43,7 @@ export async function POST(request: Request) {
       .insert({ ...result.data, status: "new" });
 
     if (error) {
-      console.error("Supabase insert error:", error.message);
+      console.error("booking insert failed", error.code ?? "unknown");
       return NextResponse.json(
         { ok: false, message: "We couldn't save your request. Please try again or email us directly." },
         { status: 500 }
@@ -58,7 +69,10 @@ export async function POST(request: Request) {
       `,
     });
   } catch (err) {
-    console.error("Booking submission failed:", err);
+    console.error(
+      "booking submission failed",
+      (err as { code?: string } | null)?.code ?? "unknown"
+    );
     return NextResponse.json(
       { ok: false, message: "Booking service is not configured. Please email us directly." },
       { status: 500 }
